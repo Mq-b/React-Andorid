@@ -1,4 +1,4 @@
-# 瑞莱生物 - 生产管理系统
+# 生产管理系统
 
 基于 React Native + Expo 的 Android 移动端应用。
 
