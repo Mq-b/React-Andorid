@@ -7,12 +7,13 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
-import { CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { decode } from './src/codec';
 import { PROJECTS } from './src/projects';
 
 export default function App() {
+  const [permission, requestPermission] = useCameraPermissions();
   const [showHelp, setShowHelp] = useState(false);
   const [scanResult, setScanResult] = useState<{
     projectName: string;
@@ -66,39 +67,51 @@ export default function App() {
 
       {/* 扫码页 */}
       <View style={styles.page}>
-        <CameraView
-          style={styles.cameraView}
-          barcodeScannerSettings={{ barcodeTypes: ['datamatrix'] }}
-          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-        />
-        <View style={styles.scanOverlay}>
-          <View style={styles.scanFrame}>
-            <View style={[styles.corner, styles.cornerTL]} />
-            <View style={[styles.corner, styles.cornerTR]} />
-            <View style={[styles.corner, styles.cornerBL]} />
-            <View style={[styles.corner, styles.cornerBR]} />
-          </View>
-          <Text style={styles.scanHint}>将试剂 DataMatrix 码放入框内</Text>
-        </View>
-        {scanResult && (
-          <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>扫码结果</Text>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>项目</Text>
-              <Text style={styles.resultValue} selectable>
-                {scanResult.projectName}（{scanResult.projectId}）
-              </Text>
-            </View>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>批号</Text>
-              <Text style={styles.resultValue} selectable>
-                {scanResult.lot}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleContinue}>
-              <Text style={styles.primaryBtnText}>继续扫码</Text>
+        {!permission?.granted ? (
+          <View style={styles.permScreen}>
+            <Text style={styles.permTitle}>需要相机权限</Text>
+            <Text style={styles.permDesc}>扫码功能需要使用相机，请授权后继续</Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
+              <Text style={styles.primaryBtnText}>授权相机</Text>
             </TouchableOpacity>
           </View>
+        ) : (
+          <>
+            <CameraView
+              style={styles.cameraView}
+              barcodeScannerSettings={{ barcodeTypes: ['datamatrix'] }}
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+            />
+            <View style={styles.scanOverlay}>
+              <View style={styles.scanFrame}>
+                <View style={[styles.corner, styles.cornerTL]} />
+                <View style={[styles.corner, styles.cornerTR]} />
+                <View style={[styles.corner, styles.cornerBL]} />
+                <View style={[styles.corner, styles.cornerBR]} />
+              </View>
+              <Text style={styles.scanHint}>将试剂 DataMatrix 码放入框内</Text>
+            </View>
+            {scanResult && (
+              <View style={styles.resultCard}>
+                <Text style={styles.resultTitle}>扫码结果</Text>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>项目</Text>
+                  <Text style={styles.resultValue} selectable>
+                    {scanResult.projectName}（{scanResult.projectId}）
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>批号</Text>
+                  <Text style={styles.resultValue} selectable>
+                    {scanResult.lot}
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.primaryBtn} onPress={handleContinue}>
+                  <Text style={styles.primaryBtnText}>继续扫码</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -260,4 +273,23 @@ const styles = StyleSheet.create({
   },
   helpBody: { fontSize: 14, color: TEXT, lineHeight: 22, marginBottom: 20 },
   helpBold: { fontWeight: '700', color: ACCENT },
+  permScreen: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  permTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: TEXT,
+    marginBottom: 12,
+  },
+  permDesc: {
+    fontSize: 14,
+    color: MUTED,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
 });
