@@ -1,214 +1,263 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
-
-/** 功能模块卡片数据 */
-const MODULES = [
-  { id: '1', title: '设备管理', icon: '⚙️', desc: '设备状态监控' },
-  { id: '2', title: '数据采集', icon: '📊', desc: '实时数据采集' },
-  { id: '3', title: '质量检测', icon: '🔬', desc: '质量分析报告' },
-  { id: '4', title: '生产报表', icon: '📋', desc: '生产数据统计' },
-  { id: '5', title: '报警中心', icon: '🔔', desc: '异常报警处理' },
-  { id: '6', title: '系统设置', icon: '🛠️', desc: '参数配置管理' },
-];
+import React, { useState, useCallback, useRef } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Alert,
+  StatusBar,
+} from 'react-native';
+import { CameraView } from 'expo-camera';
+import * as Haptics from 'expo-haptics';
+import { decode } from './src/codec';
+import { PROJECTS } from './src/projects';
 
 export default function App() {
+  const [showHelp, setShowHelp] = useState(false);
+  const [scanResult, setScanResult] = useState<{
+    projectName: string;
+    projectId: number;
+    lot: number;
+  } | null>(null);
+  const [scanned, setScanned] = useState(false);
+  const scannedRef = useRef(false);
+
+  const handleBarCodeScanned = useCallback(
+    ({ data }: { data: string }) => {
+      if (scannedRef.current) return;
+      scannedRef.current = true;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = decode(data);
+      if (!result) {
+        Alert.alert('扫码结果', '无法识别的 DataMatrix 码', [
+          { text: '确定', onPress: () => { scannedRef.current = false; } },
+        ]);
+        return;
+      }
+      const [id, lot] = result;
+      const project = PROJECTS.find((p) => p.id === id);
+      setScanned(true);
+      setScanResult({
+        projectName: project?.name ?? `未知项目(${id})`,
+        projectId: id,
+        lot,
+      });
+    },
+    []
+  );
+
+  const handleContinue = useCallback(() => {
+    setScanResult(null);
+    setScanned(false);
+    scannedRef.current = false;
+  }, []);
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      {/* 顶部状态栏 */}
-      <View style={styles.statusBar}>
-        <Text style={styles.statusText}>RELAI BIO</Text>
-        <Text style={styles.statusTime}>在线</Text>
+      {/* 标题栏 */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Relia</Text>
+        <TouchableOpacity onPress={() => setShowHelp(true)} style={styles.helpBtn}>
+          <Text style={styles.helpBtnText}>?</Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 品牌区域 */}
-        <View style={styles.brandSection}>
-          <View style={styles.logoContainer}>
-            <View style={styles.logoOuter}>
-              <View style={styles.logoInner}>
-                <Text style={styles.logoText}>RL</Text>
-              </View>
+      {/* 扫码页 */}
+      <View style={styles.page}>
+        <CameraView
+          style={styles.cameraView}
+          barcodeScannerSettings={{ barcodeTypes: ['datamatrix'] }}
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        />
+        <View style={styles.scanOverlay}>
+          <View style={styles.scanFrame}>
+            <View style={[styles.corner, styles.cornerTL]} />
+            <View style={[styles.corner, styles.cornerTR]} />
+            <View style={[styles.corner, styles.cornerBL]} />
+            <View style={[styles.corner, styles.cornerBR]} />
+          </View>
+          <Text style={styles.scanHint}>将试剂 DataMatrix 码放入框内</Text>
+        </View>
+        {scanResult && (
+          <View style={styles.resultCard}>
+            <Text style={styles.resultTitle}>扫码结果</Text>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>项目</Text>
+              <Text style={styles.resultValue} selectable>
+                {scanResult.projectName}（{scanResult.projectId}）
+              </Text>
             </View>
-          </View>
-          <Text style={styles.brandName}>瑞莱生物</Text>
-          <Text style={styles.brandSub}>RELAI BIOTECHNOLOGY</Text>
-          <View style={styles.divider} />
-          <Text style={styles.version}>v1.0.0 | 生产管理系统</Text>
-        </View>
-
-        {/* 功能模块网格 */}
-        <View style={styles.moduleGrid}>
-          {MODULES.map((mod) => (
-            <TouchableOpacity
-              key={mod.id}
-              style={styles.moduleCard}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.moduleIcon}>{mod.icon}</Text>
-              <Text style={styles.moduleTitle}>{mod.title}</Text>
-              <Text style={styles.moduleDesc}>{mod.desc}</Text>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>批号</Text>
+              <Text style={styles.resultValue} selectable>
+                {scanResult.lot}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleContinue}>
+              <Text style={styles.primaryBtnText}>继续扫码</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        )}
+      </View>
 
-        {/* 底部信息 */}
-        <View style={styles.footer}>
-          <View style={styles.footerRow}>
-            <Text style={styles.footerLabel}>系统状态</Text>
-            <View style={styles.statusDot} />
-            <Text style={styles.footerValue}>正常运行</Text>
-          </View>
-          <View style={styles.footerRow}>
-            <Text style={styles.footerLabel}>设备连接</Text>
-            <Text style={styles.footerValue}>12 台在线</Text>
+      {/* 帮助 */}
+      {showHelp && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.helpModal}>
+            <Text style={styles.helpTitle}>Relia 试剂扫码工具</Text>
+            <Text style={styles.helpBody} selectable>
+              用于瑞莱生物试剂的 DataMatrix 码管理：{'\n\n'}
+              扫描试剂包装上的 DataMatrix 二维码，自动解析出检测项目名称和批号。{'\n\n'}
+              所有 DataMatrix 码均使用标准 ECC200 编码。
+            </Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowHelp(false)}>
+              <Text style={styles.primaryBtnText}>知道了</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+      )}
     </View>
   );
 }
 
+const ACCENT = '#2563eb';
+const BG = '#ffffff';
+const BORDER = '#e2e8f0';
+const TEXT = '#1e293b';
+const MUTED = '#94a3b8';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: BG,
   },
-  statusBar: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 12,
-    backgroundColor: '#111111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
-  },
-  statusText: {
-    color: '#00d4aa',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  statusTime: {
-    color: '#00d4aa',
-    fontSize: 12,
-  },
-  content: {
-    flex: 1,
-  },
-  brandSection: {
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 30,
-  },
-  logoContainer: {
-    marginBottom: 20,
-  },
-  logoOuter: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#00d4aa',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#111111',
-  },
-  logoInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 15,
-    backgroundColor: '#00d4aa',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    color: '#0a0a0a',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
-  brandName: {
-    color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 6,
-  },
-  brandSub: {
-    color: '#666666',
-    fontSize: 12,
-    marginTop: 6,
-    letterSpacing: 3,
-  },
-  divider: {
-    width: 60,
-    height: 2,
-    backgroundColor: '#00d4aa',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  version: {
-    color: '#444444',
-    fontSize: 11,
-  },
-  moduleGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     paddingHorizontal: 16,
-    gap: 12,
+    paddingTop: 48,
+    paddingBottom: 12,
+    backgroundColor: BG,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  moduleCard: {
-    width: '47%',
-    backgroundColor: '#141414',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#1e1e1e',
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: TEXT,
+    letterSpacing: 1,
   },
-  moduleIcon: {
-    fontSize: 28,
-    marginBottom: 12,
+  helpBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ACCENT,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  moduleTitle: {
+  helpBtnText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: '700',
   },
-  moduleDesc: {
-    color: '#666666',
-    fontSize: 12,
+  page: {
+    flex: 1,
   },
-  footer: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#141414',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1e1e1e',
+  cameraView: {
+    flex: 1,
   },
-  footerRow: {
-    flexDirection: 'row',
+  scanOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  footerLabel: {
-    color: '#666666',
-    fontSize: 13,
-    width: 80,
+  scanFrame: {
+    width: 240,
+    height: 240,
+    position: 'relative',
   },
-  footerValue: {
+  corner: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderColor: ACCENT,
+  },
+  cornerTL: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3 },
+  cornerTR: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3 },
+  cornerBL: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3 },
+  cornerBR: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3 },
+  scanHint: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 20,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00d4aa',
-    marginRight: 8,
+  resultCard: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: BG,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: TEXT,
+    marginBottom: 16,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  resultLabel: { fontSize: 14, color: MUTED },
+  resultValue: { fontSize: 15, fontWeight: '600', color: TEXT },
+  primaryBtn: {
+    backgroundColor: ACCENT,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  primaryBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    zIndex: 100,
+    elevation: 100,
+  },
+  helpModal: {
+    backgroundColor: BG,
+    borderRadius: 20,
+    margin: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  helpTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: TEXT,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  helpBody: { fontSize: 14, color: TEXT, lineHeight: 22, marginBottom: 20 },
+  helpBold: { fontWeight: '700', color: ACCENT },
 });

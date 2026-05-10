@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "React-Andorid",
-    "slug": "React-Andorid",
+    "name": "Relia",
+    "slug": "Relia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,10 +21,25 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.relia.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "允许访问相机以扫描试剂 DataMatrix 码"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允许保存 DataMatrix 码到相册"
+        }
+      ]
+    ]
   }
 }

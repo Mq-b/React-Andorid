@@ -24,6 +24,7 @@ React Native + Expo Android 移动端应用，工业风深色 UI。
 npm install          # 安装依赖
 npx expo start       # 启动开发服务器
 npx expo start --clear  # 清除缓存启动
+emulator -avd Pixel7_API34 -camera-back webcam0 -camera-front webcam0  # 模拟器直通电脑摄像头
 ```
 
 ## 项目结构
