@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,7 +13,9 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { decode } from './src/codec';
-import { PROJECTS } from './src/projects';
+import type { Project } from './src/projects';
+import { loadProjects, saveProjects } from './src/storage';
+import SettingsModal from './src/SettingsModal';
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -28,6 +30,21 @@ export default function App() {
   const focusingRef = useRef(false);
   const [cameraLayout, setCameraLayout] = useState({ width: 0, height: 0 });
   const [autofocus, setAutofocus] = useState(false);
+
+  // 项目数据
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const projectsRef = useRef<Project[]>([]);
+
+  useEffect(() => {
+    projectsRef.current = projects;
+  }, [projects]);
+
+  useEffect(() => {
+    loadProjects()
+      .then(setProjects)
+      .catch(() => Alert.alert('加载失败', '无法读取项目数据'));
+  }, []);
 
   // 判断条码中心是否在扫码框内
   const isWithinScanFrame = useCallback((result: BarcodeScanningResult): boolean => {
@@ -65,7 +82,7 @@ export default function App() {
         return;
       }
       const [id, lot] = decoded;
-      const project = PROJECTS.find((p) => p.id === id);
+      const project = projectsRef.current.find((p) => p.id === id);
       setScanned(true);
       setScanResult({
         projectName: project?.name ?? `未知项目(${id})`,
@@ -105,9 +122,14 @@ export default function App() {
       {/* 标题栏 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Relia</Text>
-        <TouchableOpacity onPress={() => setShowHelp(true)} style={styles.helpBtn}>
-          <Text style={styles.helpBtnText}>?</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.iconBtn}>
+            <Text style={styles.iconBtnText}>⚙</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowHelp(true)} style={styles.helpBtn}>
+            <Text style={styles.helpBtnText}>?</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 扫码页 */}
@@ -180,6 +202,17 @@ export default function App() {
           </View>
         </View>
       )}
+
+      {/* 设置 */}
+      <SettingsModal
+        visible={showSettings}
+        projects={projects}
+        onSave={async (updated) => {
+          await saveProjects(updated);
+          setProjects(updated);
+        }}
+        onClose={() => setShowSettings(false)}
+      />
     </View>
   );
 }
@@ -211,6 +244,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: TEXT,
     letterSpacing: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: BORDER,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBtnText: {
+    fontSize: 16,
   },
   helpBtn: {
     width: 32,

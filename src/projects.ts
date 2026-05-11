@@ -1,36 +1,8 @@
 /**
- * 试剂项目列表
+ * 试剂项目类型
  */
 
 export interface Project {
   id: number;
   name: string;
 }
-
-export const PROJECTS: Project[] = [
-  { id: 1, name: 'hs-cTnI' },
-  { id: 2, name: 'NT-proBNP' },
-  { id: 3, name: 'Myo' },
-  { id: 4, name: 'CK-MB' },
-  { id: 5, name: 'PCT' },
-  { id: 6, name: 'D-Dimer' },
-  { id: 7, name: 'hs-cTnT' },
-  { id: 8, name: 'BNP' },
-  { id: 9, name: 'IL-6' },
-  { id: 10, name: 'S100β' },
-  { id: 11, name: 'SAA' },
-  { id: 12, name: 'hsCRP+常规CRP' },
-  { id: 13, name: 'H-FABP' },
-  { id: 14, name: 'NGAL' },
-  { id: 15, name: 'PGI' },
-  { id: 16, name: 'PGII' },
-  { id: 17, name: 'HCY' },
-  { id: 18, name: 'LP-PLA2（临床）' },
-  { id: 19, name: 'ST2（临床）' },
-  { id: 20, name: 'G-17（临床）' },
-  { id: 21, name: 'Aβ1-42（临床）' },
-  { id: 22, name: 'P-Tau181（临床）' },
-  { id: 23, name: 'AD7c-NTP（临床）' },
-  { id: 24, name: 'HCG' },
-  { id: 110, name: "hs-cTnI"}
-];
