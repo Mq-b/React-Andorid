@@ -6,8 +6,11 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
+  Pressable,
+  LayoutChangeEvent,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import type { BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { decode } from './src/codec';
 import { PROJECTS } from './src/projects';
@@ -22,20 +25,46 @@ export default function App() {
   } | null>(null);
   const [scanned, setScanned] = useState(false);
   const scannedRef = useRef(false);
+  const focusingRef = useRef(false);
+  const [cameraLayout, setCameraLayout] = useState({ width: 0, height: 0 });
+  const [autofocus, setAutofocus] = useState(false);
+
+  // 判断条码中心是否在扫码框内
+  const isWithinScanFrame = useCallback((result: BarcodeScanningResult): boolean => {
+    if (cameraLayout.width === 0 || cameraLayout.height === 0) return true;
+    const { bounds } = result;
+    if (!bounds || bounds.size.width === 0 || bounds.size.height === 0) return true;
+
+    const SCAN_FRAME = 240;
+    const frameLeft = (cameraLayout.width - SCAN_FRAME) / 2;
+    const frameTop = (cameraLayout.height - SCAN_FRAME) / 2;
+
+    const cx = bounds.origin.x + bounds.size.width / 2;
+    const cy = bounds.origin.y + bounds.size.height / 2;
+
+    return (
+      cx >= frameLeft &&
+      cx <= frameLeft + SCAN_FRAME &&
+      cy >= frameTop &&
+      cy <= frameTop + SCAN_FRAME
+    );
+  }, [cameraLayout]);
 
   const handleBarCodeScanned = useCallback(
-    ({ data }: { data: string }) => {
+    (result: BarcodeScanningResult) => {
       if (scannedRef.current) return;
+      // 忽略扫码框外的条码
+      if (!isWithinScanFrame(result)) return;
       scannedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const result = decode(data);
-      if (!result) {
+      const decoded = decode(result.data);
+      if (!decoded) {
         Alert.alert('扫码结果', '无法识别的 DataMatrix 码', [
           { text: '确定', onPress: () => { scannedRef.current = false; } },
         ]);
         return;
       }
-      const [id, lot] = result;
+      const [id, lot] = decoded;
       const project = PROJECTS.find((p) => p.id === id);
       setScanned(true);
       setScanResult({
@@ -44,8 +73,24 @@ export default function App() {
         lot,
       });
     },
-    []
+    [isWithinScanFrame]
   );
+
+  // 点击画面触发对焦
+  const handleCameraPress = useCallback(() => {
+    if (focusingRef.current) return;
+    focusingRef.current = true;
+    setAutofocus(true);
+    setTimeout(() => {
+      setAutofocus(false);
+      focusingRef.current = false;
+    }, 1000);
+  }, []);
+
+  const handleCameraLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setCameraLayout({ width, height });
+  }, []);
 
   const handleContinue = useCallback(() => {
     setScanResult(null);
@@ -77,12 +122,16 @@ export default function App() {
           </View>
         ) : (
           <>
-            <CameraView
-              style={styles.cameraView}
-              barcodeScannerSettings={{ barcodeTypes: ['datamatrix'] }}
-              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-            />
-            <View style={styles.scanOverlay}>
+            <View style={styles.cameraWrapper} onLayout={handleCameraLayout}>
+              <CameraView
+                style={styles.cameraView}
+                autofocus={autofocus ? 'on' : 'off'}
+                barcodeScannerSettings={{ barcodeTypes: ['datamatrix'] }}
+                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              />
+            </View>
+            <Pressable style={styles.touchOverlay} onPress={handleCameraPress} />
+            <View style={styles.scanOverlay} pointerEvents="none">
               <View style={styles.scanFrame}>
                 <View style={[styles.corner, styles.cornerTL]} />
                 <View style={[styles.corner, styles.cornerTR]} />
@@ -179,8 +228,15 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
   },
+  cameraWrapper: {
+    flex: 1,
+  },
   cameraView: {
     flex: 1,
+  },
+  touchOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
   scanOverlay: {
     ...StyleSheet.absoluteFillObject,
