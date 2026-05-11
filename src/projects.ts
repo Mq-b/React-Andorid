@@ -32,4 +32,5 @@ export const PROJECTS: Project[] = [
   { id: 22, name: 'P-Tau181（临床）' },
   { id: 23, name: 'AD7c-NTP（临床）' },
   { id: 24, name: 'HCG' },
+  { id: 110, name: "hs-cTnI"}
 ];
